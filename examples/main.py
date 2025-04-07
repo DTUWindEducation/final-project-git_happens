@@ -6,11 +6,24 @@ import src as src
 
 # Can be modified for the different sites
 site_index = 3
+train_size=0.8
+test_size=0.2
 
 # Load the data for the specified site
 data_dir = f'./inputs/Location{site_index}.csv'
-data=src.load_data(data_dir)
+WindData = src.WindFarmDataset(data_dir, train_size, test_size)
+data=WindData.load_data()
+print(data.head())      # print data head
 
+# Print statistics of the data
+summary = WindData.summary()
+print(summary)
+
+# Print lenth of training and testing datasets
+split=WindData.split()
+print(len(split[0]), len(split[1]))
+
+"""
 # Plotting the wind speed data
 src.plot_data( y_data_input=data['windspeed_100m'],
                site_index=site_index,
@@ -21,3 +34,5 @@ src.plot_data( y_data_input=data['windspeed_100m'],
                ylabel='Wind Speed [m/s]',
                label_legend='Wind Speed at 100m Height'
                )
+
+"""
