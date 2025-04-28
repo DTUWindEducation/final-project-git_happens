@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn import svm
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 # --------------- Week 9 ---------------
@@ -221,16 +222,31 @@ def plot_data(y_data_input,
 
 
 # --- Split Data --- 
+"""
 def split_data(data):
-    """Split the lagged dataset into training and testing sets (feature and target)."""
+    #Split the lagged dataset into training and testing sets (feature and target).
     feature_columns = [col for col in data.columns if '_lag_1' in col]  # Select only columns with lagged features
     X = data[feature_columns]  # Features (lagged variables)
     y = data['Power']  # 'Power' is the target variable
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     
     return X_train, X_test, y_train, y_test
+"""
 
+def split_data(data):
+    #Split the lagged dataset into training and testing sets (feature and target).
+    #Does not shuffle time-series data — future data should not influence past predictions.
+    split_idx = int(len(data) * 0.8)  # 80% for training, 20% for testing
+    
+    feature_columns = [col for col in data.columns if '_lag_1' in col]  # Select only columns with lagged features
+    X = data[feature_columns]  # Features (lagged variables)
+    y = data['Power']  # 'Power' is the target variable
+        
+    X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+    y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+        
+    return X_train, X_test, y_train, y_test
 
 # ---Compute Metrics---
 def compute_metrics(y_true, y_pred):
@@ -253,3 +269,42 @@ def compute_metrics(y_true, y_pred):
     rmse = np.sqrt(mse)
     
     return mse, mae, rmse
+
+
+#--- Persistence Model ---
+def persistence_model(y_test):
+    """
+    Predict one-hour ahead power output using persistence model.
+    """
+    y_pred_persistence = y_test.shift(1)  # one step persistence (1 hour ahead)
+    y_pred_persistence = y_pred_persistence.dropna()  # Drop the first row with NaN value
+    
+    return y_pred_persistence
+
+
+# --- Machine Learning Models ---
+# Linear Regression Model
+def train_linear_regression(X_train, X_test, y_train):
+    """
+    Train a linear regression model.
+    """
+    model_linear_reg = LinearRegression()
+    model_linear_reg.fit(X_train, y_train)
+    
+    y_pred_linear_reg = model_linear_reg.predict(X_test) # Predict on training data
+    
+    return y_pred_linear_reg
+
+
+# Support Vector Machine (SVM) Model
+def train_svm(X_train, X_test, y_train):
+    """
+    Train a Support Vector Machine (SVM) model.
+    """    
+    model_svm = svm.SVR()
+    model_svm.fit(X_train, y_train)
+    
+    y_pred_svm = model_svm.predict(X_test)  # Predict on training data
+    
+    return y_pred_svm
+
