@@ -11,6 +11,22 @@ test_size=0.2
 
 # Load the data for the specified site
 data_dir = f'./inputs/Location{site_index}.csv'
+
+WindData = src.WindFarmDataset(data_dir)
+data=WindData.load_data()
+print(data.head())      # print data head
+
+# Print statistics of the data
+summary = WindData.summary()
+print(summary)
+
+"""
+# Print lenth of training and testing datasets
+train_data, test_data = WindData.split()
+print ('Training Data:', train_data) 
+print ('Test Data:', test_data)
+"""
+
 WindData = src.WindFarmDataset(data_dir, train_size, test_size)
 data=WindData.load_data()
 print(data.head())      # print data head
@@ -35,4 +51,14 @@ src.plot_data( y_data_input=data['windspeed_100m'],
                label_legend='Wind Speed at 100m Height'
                )
 
+#Create lagged features
+lagged_data= WindData.create_lagged_features()
+
+# Split the lagged dataset into training and testing sets
+X_train, X_test, y_train, y_test = src.split_data(lagged_data)
+print('Training Data:', X_train)
+print('Test Data:', X_test)
+print('Training Labels:', y_train)
+print('Test Labels:', y_test)
 """
+
