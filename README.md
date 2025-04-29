@@ -9,6 +9,14 @@ Team: [ADD TEXT HERE!]
 
 ## Quick-start guide
 
+## Set up the environment
+
+To create the same environment used for this project:
+
+```bash
+conda env create -f environment.yml
+conda activate GitHappens_FinalProject
+
 [ADD TEXT HERE!]
 
 ## Architecture
