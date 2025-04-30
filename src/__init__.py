@@ -4,20 +4,20 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn import svm
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 # --------------- Week 9 ---------------
-
 class WindFarmDataset:
-    def __init__(self, file_path, train_size=0.8, test_size=0.2):
+    def __init__(self, file_path):  #, train_size=0.8, test_size=0.2):
         """
         Initialize the WindFarmDataset with the file path.
         """
         self.file_path = file_path
         self.data = None
-        self.train_size = train_size
-        self.test_size = test_size
+        #self.train_size = train_size
+        #self.test_size = test_size
 
     def load_data(self):
         """
@@ -46,12 +46,12 @@ class WindFarmDataset:
         
         return train_data, test_data
     '''
-
+    """
     def create_lagged_features(self):
-            """
+            '''
             Creates a new dataset with lagged features based on origin 
             dataset features (1 hour shift, can be changed later).
-            """            
+            '''            
             if self.data is None:
                 raise ValueError("Data not loaded. Please load the data first.")
             
@@ -64,7 +64,7 @@ class WindFarmDataset:
             self.data = self.data.dropna() # Drop missing values from lag/rolling features
             
             return self.data
-
+    """
     def split_data(self):
         if self.data is None:
                 raise ValueError("Data not loaded. Please load the data first.")
@@ -89,9 +89,6 @@ class WindFarmDataset:
         
         return X_train, X_test, y_train, y_test
 
-    
-
-        
 
 class WindFarmPlotter:
     def __init__(self, data):
@@ -100,12 +97,12 @@ class WindFarmPlotter:
         """
         self.data = data
 
-    def plot_data(self, site_index, start_time, end_time, title='Data Plot', xlabel='Time', ylabel='Value', label_legend='Data'):
+    def plot_data(self, site_index, column, start_time, end_time, title='Data Plot', xlabel='Time', ylabel='Value', label_legend='Data'):
         """
         Plot the data for a specific site and time range.
         """
         x_data = self.data.loc[start_time:end_time].index
-        y_data = self.data.loc[start_time:end_time].values
+        y_data = self.data.loc[start_time:end_time, column]
 
         plt.figure(figsize=(8, 4))
         plt.plot(x_data, y_data, label=label_legend)
@@ -116,6 +113,30 @@ class WindFarmPlotter:
         plt.ylabel(ylabel, fontsize=12)
         plt.legend(fontsize=10)
         plt.grid()
+        plt.show()
+        
+    def plot_predictions(self, y_test, y_pred, user_month, title='Model Predictions vs Actual', model_name='Model'):
+        
+        if user_month in [4, 6, 9, 11]:  # Months with 30 days
+            end_date = f"2021-{user_month:02d}-30"
+        elif user_month == 2:  # February (assuming non-leap year)
+            end_date = f"2021-{user_month:02d}-28"
+        else:  # Months with 31 days
+            end_date = f"2021-{user_month:02d}-31"
+        
+        start_date = f"2021-{user_month}-01"
+    
+        
+        plt.figure(figsize=(10, 5))
+        plt.plot(y_test[start_date:end_date], label='Real', color='red', linewidth=2)
+         
+        plt.plot(y_pred[start_date:end_date], label=f'Predicted - {model_name}', linestyle='--', linewidth=2)
+        plt.title(title, fontsize=14)
+        plt.xlabel('Time', fontsize=12)
+        plt.ylabel('Power', fontsize=12)
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
         plt.show()
 
 class Evaluation:
@@ -142,8 +163,8 @@ class Evaluation:
         -------
         RMSE, MAE, and MSE.
         """
-        if len(self.y_true) != len(self.y_pred):
-            self.y_true = self.y_true[1:]  # Shift y_true to match the length of y_pred
+        #if len(self.y_true) != len(self.y_pred):
+        #    self.y_true = self.y_true[1:]  # Shift y_true to match the length of y_pred
 
         mse = mean_squared_error(self.y_true, self.y_pred)
         mae = mean_absolute_error(self.y_true, self.y_pred)
@@ -166,8 +187,10 @@ class Prediction:
         """
         Predict one-hour ahead power output using persistence model.
         """
-        y_pred_persistence = self.y_test.shift(1)  # one step persistence (1 hour ahead)
-        y_pred_persistence = y_pred_persistence.dropna()  # Drop the first row with NaN value
+        y_pred_persistence = self.X_test['Power_lag_1']  # if 'Power_lag_1' is a feature
+
+        #y_pred_persistence = self.y_test.shift(1)  # one step persistence (1 hour ahead)
+        #y_pred_persistence = y_pred_persistence.dropna()  # Drop the first row with NaN value
         
         return y_pred_persistence
 
@@ -180,6 +203,7 @@ class Prediction:
         model_linear_reg.fit(self.X_train, self.y_train)
         
         y_pred_linear_reg = model_linear_reg.predict(self.X_test) # Predict on training data
+        y_pred_linear_reg = pd.Series(y_pred_linear_reg, index=self.y_test.index) # Convert to Series with same index as y_test
         
         return y_pred_linear_reg
 
@@ -192,6 +216,19 @@ class Prediction:
         model_svm.fit(self.X_train, self.y_train)
         
         y_pred_svm = model_svm.predict(self.X_test)  # Predict on training data
+        y_pred_svm = pd.Series(y_pred_svm, index=self.y_test.index)  # Convert to Series with same index as y_test
         
         return y_pred_svm
 
+    # Random Forest Model
+    def train_random_forest(self):
+        """
+        Train a Random Forest model.
+        """
+        model_rf = RandomForestRegressor(n_estimators=100, random_state=42)
+        model_rf.fit(self.X_train, self.y_train)
+        
+        y_pred_rf = model_rf.predict(self.X_test)  # Predict on test data
+        y_pred_rf = pd.Series(y_pred_rf, index=self.y_test.index)  # Convert to Series with same index as y_test
+        
+        return y_pred_rf
