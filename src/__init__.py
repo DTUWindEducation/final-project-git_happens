@@ -139,8 +139,9 @@ class WindFarmPlotter:
         plt.tight_layout()
         plt.show()
 
+
 class Evaluation:
-    def __init__(self,y_true, y_pred):
+    def __init__(self, y_true, y_pred):
         """
         Initialize the Evaluation class with true and predicted values.
         """
@@ -163,14 +164,16 @@ class Evaluation:
         -------
         RMSE, MAE, and MSE.
         """
-        #if len(self.y_true) != len(self.y_pred):
-        #    self.y_true = self.y_true[1:]  # Shift y_true to match the length of y_pred
+        #  if len(self.y_true) != len(self.y_pred):
+        #  self.y_true = self.y_true[1:]  # Shift y_true to match the length
+        #  of y_pred
 
         mse = mean_squared_error(self.y_true, self.y_pred)
         mae = mean_absolute_error(self.y_true, self.y_pred)
         rmse = np.sqrt(mse)
         
         return mse, mae, rmse
+
 
 class Prediction:
     def __init__(self, X_test, y_test, X_train, y_train):
