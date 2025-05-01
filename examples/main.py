@@ -1,14 +1,14 @@
 "Main script for final project"
+import src as src
+import time
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-import src as src 
-import time
 
 # Site location and training/testing data size
-#site_index = 1      # Change site index to load different locations
-#train_size=0.8      # Proportion of data to be used for training
-#test_size=0.2       # Proportion of data to be used for testing
+# site_index = 1      # Change site index to load different locations
+# train_size=0.8      # Proportion of data to be used for training
+# test_size=0.2       # Proportion of data to be used for testing
 
 def get_valid_site_index():
     valid_indices = [1, 2, 3, 4]
