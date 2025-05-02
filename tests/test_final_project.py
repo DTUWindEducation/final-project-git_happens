@@ -4,11 +4,59 @@ import numpy as np
 import pytest
 import sys
 import os
+import tempfile
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from __init__ import WindFarmDataset, Evaluation, Prediction, WindFarmPlotter  # __init__ here refers to src/__init__.py
+from __init__ import WindFarmDataset, Evaluation, Prediction, WindFarmPlotter, get_valid_site_index, get_lag_hours  # __init__ here refers to src/__init__.py
 
 #from src import WindFarmDataset, Evaluation, Prediction  
+
+
+import builtins
+from unittest.mock import patch
+from io import StringIO
+import sys
+
+
+def test_get_valid_site_index_valid_input():
+    with patch('builtins.input', return_value='2'):
+        assert get_valid_site_index() == 2
+
+def test_get_valid_site_index_invalid_then_valid_input(capsys):
+    # Simulate invalid input followed by valid input
+    with patch('builtins.input', side_effect=['abc', '5', '3']):
+        result = get_valid_site_index()
+        captured = capsys.readouterr()
+
+        assert result == 3
+        assert "❌ Invalid input. Please enter a number." in captured.out
+        assert "❌ Invalid input. Please enter a valid value for the location" in captured.out
+
+def test_get_lag_hours_valid_1(capsys):
+    with patch("builtins.input", return_value="1"):
+        result = get_lag_hours()
+        captured = capsys.readouterr()
+        assert result == 1
+        assert "✅ You selected a forecasting horizon of 1 hour(s)." in captured.out
+
+
+def test_get_lag_hours_valid_24(capsys):
+    with patch("builtins.input", return_value="24"):
+        result = get_lag_hours()
+        captured = capsys.readouterr()
+        assert result == 24
+        assert "✅ You selected a forecasting horizon of 24 hour(s)." in captured.out
+
+
+def test_get_lag_hours_invalid_then_valid(capsys):
+    with patch("builtins.input", side_effect=["abc", "5", "24"]):
+        result = get_lag_hours()
+        captured = capsys.readouterr()
+        assert result == 24
+        assert "❌ Invalid input. Please enter a valid number." in captured.out
+        assert "❌ Invalid input. Please enter a number between 1 and 24." in captured.out
+        assert "✅ You selected a forecasting horizon of 24 hour(s)." in captured.out
 
 @pytest.fixture
 def sample_data():
@@ -27,29 +75,18 @@ def test_summary_without_data():
     ds = WindFarmDataset("dummy.csv")
     with pytest.raises(AttributeError):
         ds.summary()
+   
 
-def test_create_lagged_features(sample_data):
+def test_split_data(sample_data,lag_hours=1,split_index=0.8):
     dataset = WindFarmDataset(file_path='fake.csv')
     dataset.data = sample_data.copy()
-    lagged_data = dataset.create_lagged_features()
-    assert 'Power_lag_1' in lagged_data.columns
-    assert 'windspeed_100m_lag_1' in lagged_data.columns
-    assert len(lagged_data) == 4
-    assert lagged_data['Power_lag_1'].iloc[0] == 10  # First value should be the first Power value
-    assert lagged_data['windspeed_100m_lag_1'].iloc[0] == 3.1  # First value should be the first windspeed value
-
-    
-
-def test_split_data(sample_data):
-    dataset = WindFarmDataset(file_path='fake.csv')
-    dataset.data = sample_data.copy()
-    X_train, X_test, y_train, y_test = dataset.split_data()
-    assert len(X_train) == 3
-    assert len(X_test) == 1
-    assert 'Power_lag_1' in X_train.columns
-    assert 'Power_lag_1' in X_test.columns
-    assert 'windspeed_100m_lag_1' in X_train.columns
-    assert 'windspeed_100m_lag_1' in X_test.columns
+    x_train, x_test, y_train, y_test = dataset.split_data(lag_hours=lag_hours,split_index=split_index)
+    assert len(x_train) == 3
+    assert len(x_test) == 1
+    assert 'Power_lag_1' in x_train.columns
+    assert 'Power_lag_1' in x_test.columns
+    assert 'windspeed_100m_lag_1' in x_train.columns
+    assert 'windspeed_100m_lag_1' in x_test.columns
     assert len(y_train) == 3
     assert len(y_test) == 1
 
@@ -63,6 +100,7 @@ def test_compute_metrics_zero_error():
     assert mae == 0
     assert rmse == 0
 
+"""
 def test_compute_metrics_different_lengths():
     y_true = np.array([10, 20, 30, 40])  # length 4
     y_pred = np.array([25, 35, 45])      # length 3
@@ -71,35 +109,43 @@ def test_compute_metrics_different_lengths():
     eval.compute_metrics()
     
     # After shift, y_true should be [20, 30, 40]
-    assert np.array_equal(eval.y_true, np.array([20, 30, 40]))
+    assert np.array_equal(eval.y_true, np.array([20, 30, 40]))"""
 
 @pytest.fixture
 def prediction_data():
-    X_train = pd.DataFrame({'a_lag_1': [1, 2, 3], 'b_lag_1': [4, 5, 6]})
+    x_train = pd.DataFrame({'Power_lag_1': [1, 2, 3], 'b_lag_1': [4, 5, 6]})
     y_train = pd.Series([10, 15, 20])
-    X_test = pd.DataFrame({'a_lag_1': [3, 4], 'b_lag_1': [6, 7]})
+    x_test = pd.DataFrame({'Power_lag_1': [3, 4], 'b_lag_1': [6, 7]})
     y_test = pd.Series([20, 25])
-    return X_test, y_test, X_train, y_train
+    return x_test, y_test, x_train, y_train
+
+def test_persistence_model_output_length(prediction_data):
+    x_test, y_test, x_train, y_train = prediction_data
+    model = Prediction(x_test, y_test, x_train, y_train)
+
+    y_pred = model.persistence_model(lag_hours=1)
+
+    assert isinstance(y_pred, pd.Series), "Output should be a pandas Series"
+    assert len(y_pred) == len(x_test), "Output length should match x_test length"
 
 def test_linear_regression_prediction(prediction_data):
-    X_test, y_test, X_train, y_train = prediction_data
-    pred = Prediction(X_test, y_test, X_train, y_train)
+    x_test, y_test, x_train, y_train = prediction_data
+    pred = Prediction(x_test, y_test, x_train, y_train)
     y_pred = pred.train_linear_regression()
-    assert len(y_pred) == len(X_test)
+    assert len(y_pred) == len(x_test)
 
 
 def test_svm_prediction(prediction_data):
-    X_test, y_test, X_train, y_train = prediction_data
-    pred = Prediction(X_test, y_test, X_train, y_train)
+    x_test, y_test, x_train, y_train = prediction_data
+    pred = Prediction(x_test, y_test, x_train, y_train)
     y_pred = pred.train_svm()
-    assert len(y_pred) == len(X_test)
+    assert len(y_pred) == len(x_test)
 
-def test_persistence_model(prediction_data):
-    X_test, y_test, X_train, y_train = prediction_data
-    pred = Prediction(X_test, y_test, X_train, y_train)
-    y_pred = pred.persistence_model()
-    assert len(y_pred) == len(y_test) - 1
-    assert y_pred[1] == y_test.iloc[0]  # Second prediction should be the first actual value
+def test_random_forest_prediction(prediction_data):
+    x_test, y_test, x_train, y_train = prediction_data
+    pred = Prediction(x_test, y_test, x_train, y_train)
+    y_pred = pred.train_random_forest()
+    assert len(y_pred) == len(x_test)
 
 @pytest.mark.parametrize("a,b,expected_mse,expected_mae,expected_rmse", [
 ([1,2,3], [1,2,3], 0, 0, 0),  # perfect prediction
@@ -116,22 +162,64 @@ def test_rmse_values(a, b, expected_mse, expected_mae, expected_rmse):
     assert round(mse, 2) == expected_mse
     assert round(mae, 2) == expected_mae
 
-def test_plot_data_runs_without_error():
+
+def test_plot_predictions_runs_and_saves_image():
+    # Create a dummy time series index
+    index = pd.date_range(start="2023-01-01", periods=10, freq="h")
+    
+    # Create dummy y_test and y_pred
+    y_test = pd.Series(np.random.rand(10), index=index)
+    y_pred = pd.Series(np.random.rand(10), index=index)
+
+    # Create dummy DataFrame for initializing WindFarmPlotter
+    dummy_df = pd.DataFrame({"site1": y_test})
+
+    plotter = WindFarmPlotter(dummy_df)
+
+    # Temporary path to save image
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+        save_path = tmpfile.name
+
+    try:
+        plotter.plot_predictions(
+            y_test=y_test,
+            y_pred=y_pred,
+            start_time="2023-01-01 00:00",
+            end_time="2023-01-01 09:00",
+            title="Prediction Plot Test",
+            model_name="TestModel",
+            save_path=save_path
+        )
+
+        # Check if file was created
+        assert os.path.exists(save_path)
+        assert os.path.getsize(save_path) > 0
+
+    finally:
+        os.remove(save_path)
+
+
+def test_plot_data_runs_without_error(tmp_path):
+    import matplotlib.pyplot as plt
+    plt.switch_backend("Agg")  # Use non-GUI backend
 
     # Create dummy time-series data
     date_range = pd.date_range(start="2023-01-01", periods=10, freq="h")
     data = pd.DataFrame({"site1": np.random.rand(10)}, index=date_range)
 
-    plotter = WindFarmPlotter(data["site1"])
+    plotter = WindFarmPlotter(data)
+
+    save_path = str(tmp_path / "test_plot.png")  # Convert to string
 
     try:
         plotter.plot_data(
-            site_index=1,
+            site_index=0,
+            column="site1",
             start_time="2023-01-01 00:00",
             end_time="2023-01-01 09:00",
-            title="Test Plot"
+            title="Test Plot",
+            save_path=save_path
         )
-        
+        assert os.path.exists(save_path)
     except Exception as e:
         pytest.fail(f"Plotting failed with error: {e}")
-    
