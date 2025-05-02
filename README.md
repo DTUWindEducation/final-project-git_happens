@@ -1,5 +1,5 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/zjSXGKeR)
-# Our Great Package
+# Our Great Package - Wind Power Forecasting
 
 Team: Git_Happens
 
@@ -16,6 +16,7 @@ To create the same environment used for this project:
 ```bash
 conda env create -f environment.yml
 conda activate GitHappens_FinalProject
+```
 
 [ADD TEXT HERE!]
 
@@ -26,3 +27,7 @@ conda activate GitHappens_FinalProject
 ## Peer review
 
 [ADD TEXT HERE!]
+
+## Git collaboration
+
+## Team contribution
