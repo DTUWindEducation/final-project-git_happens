@@ -52,8 +52,8 @@ class WindFarmDataset:
             Creates a new dataset with lagged features based on origin 
             dataset features (1 hour shift, can be changed later).
             """            
-            if self.data is None:
-                raise ValueError("Data not loaded. Please load the data first.")
+            #if self.data is None:
+            #    raise ValueError("Data not loaded. Please load the data first.")
             
             #self.data['Power_lag1'] = self.data['Power'].shift(1)
             #self.data['windspeed_100m_lag1'] = self.data['windspeed_100m'].shift(1)
@@ -66,8 +66,8 @@ class WindFarmDataset:
             return self.data
 
     def split_data(self):
-        if self.data is None:
-                raise ValueError("Data not loaded. Please load the data first.")
+        #if self.data is None:
+        #        raise ValueError("Data not loaded. Please load the data first.")
         
         data = self.data.copy()  # Create a copy of the data to avoid modifying the original
 
