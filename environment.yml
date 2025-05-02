@@ -74,4 +74,19 @@ dependencies:
   - xz=5.6.4
   - zlib=1.2.13
   - zstd=1.5.6
-prefix: C:\Users\klara\anaconda3\envs\GitHappens_FinalProject
+  - pip:
+    - astroid==3.3.9
+    - colorama==0.4.6
+    - coverage==7.8.0
+    - dill==0.4.0
+    - iniconfig==2.1.0
+    - isort==6.0.1
+    - mccabe==0.7.0
+    - platformdirs==4.3.7
+    - pluggy==1.5.0
+    - pylint==3.3.6
+    - pytest==8.3.5
+    - pytest-cov==6.1.1
+    - seaborn==0.13.2
+    - tomlkit==0.13.2
+
