@@ -6,17 +6,16 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 import src as src
 
-# Site location and training/testing data size
-# site_index = 1      # Change site index to load different locations
-# train_size=0.8      # Proportion of data to be used for training
-# test_size=0.2       # Proportion of data to be used for testing
+#Initialising split index
+split_index = 0.8 # 80% train, 20% test
 
+# This is the main script for the wind farm prediction system.
 
-# Example usage
 if __name__ == "__main__":
     print("Welcome to the Wind Farm Prediction System!")
     print("This program will help you predict wind farm power generation.")
 
+    # User chooses a location
     site_index = src.get_valid_site_index()
     print(f"✅ You selected location: {site_index}")
     print("⏱️ Timer has been started...")
@@ -29,73 +28,75 @@ if __name__ == "__main__":
     WindData = src.WindFarmDataset(DATA_DIR)  # 1, train_size, test_size)
     data = WindData.load_data()
     WindData.transform_wind_directions()  # Transform wind direction to radians
-    # print(data.head())      # print data head
 
-    print(data)
-    # Plot windspeedat100m
-    wind_speed_plotter = src.WindFarmPlotter(data)
-    print("📊 Plotting windspeed at 100m...")
-    wind_speed_plotter.plot_data(
+    # Visualising the wind speed data
+    Plotter = src.WindFarmPlotter(data)
+    print("📊 Plot of wind speeds at 100m can be seen in the ./outputs/ directory.")
+    Plotter.plot_data(
         site_index=site_index,
         column='windspeed_100m',
         start_time="2017-01-01",
         end_time="2020-12-31",
-        title="Windspeed at 100m",
+        title=f"Location {site_index}: Windspeed at 100m",
         xlabel="Time",
         ylabel="Windspeed (m/s)",
-        label_legend="Windspeed at 100m"
+        label_legend="Windspeed at 100m",
+        save_path=os.path.join(
+            "./outputs/", f"Windspeed_100m_Location{site_index}.png")
     )
-    # Print statistics of the data
-    # summary = WindData.summary()
-    # print(summary)
 
-    # Get lag hours from the user
+    # User chooses the desired forecasting horizon
     lag_hours = src.get_lag_hours()
 
-    # Split data
-    X_train, X_test, y_train, y_test = WindData.split_data(lag_hours)
+    # Split data into train and test data based on the split index and lag hours
+    x_train, x_test, y_train, y_test = WindData.split_data(lag_hours, split_index)
 
-    # Load models
-    Model = src.Prediction(X_test, y_test, X_train, y_train)
+    # Letting user know that forecasts are being generated
+    print("⏳ Generating forecasts...")
+
+    # Each model is loaded and trained
+    Model = src.Prediction(x_test, y_test, x_train, y_train)
     y_pred_persistence = Model.persistence_model(lag_hours)
     y_pred_linear_reg = Model.train_linear_regression()
     y_pred_svm = Model.train_svm()
     y_pred_rf = Model.train_random_forest()
 
-    # Evaluate models
-    Evaluation = src.Evaluation(y_test, y_pred_persistence)
+    # Evaluate models and print metrics
+
+    #persistence model
+    evaluation_persistence = src.Evaluation(y_test, y_pred_persistence)
     mse_persistence, mae_persistence, rmse_persistence = (
-        Evaluation.compute_metrics()
+        evaluation_persistence.compute_metrics()
     )
+    print("📝 Results of the models: ")
     print(
         f'Persistence Model - MSE: {mse_persistence}, '
         f'MAE: {mae_persistence}, RMSE: {rmse_persistence}'
     )
 
-    Evaluation = src.Evaluation(y_test, y_pred_linear_reg)
+    # Linear regression model
+    evaluation_linear = src.Evaluation(y_test, y_pred_linear_reg)
     mse_linear_reg, mae_linear_reg, rmse_linear_reg = (
-        Evaluation.compute_metrics()
+        evaluation_linear.compute_metrics()
     )
     print(
         f'Linear Regression Model - MSE: {mse_linear_reg}, '
         f'MAE: {mae_linear_reg}, RMSE: {rmse_linear_reg}'
     )
 
-    Evaluation = src.Evaluation(y_test, y_pred_svm)
-    mse_svm, mae_svm, rmse_svm = Evaluation.compute_metrics()
+    # SVM model
+    evaluation_svm = src.Evaluation(y_test, y_pred_svm)
+    mse_svm, mae_svm, rmse_svm = evaluation_svm.compute_metrics()
     print(f'SVM Model - MSE: {mse_svm}, MAE: {mae_svm}, RMSE: {rmse_svm}')
 
-    Evaluation = src.Evaluation(y_test, y_pred_rf)
-    mse_rf, mae_rf, rmse_rf = Evaluation.compute_metrics()
+    # Random Forest model
+    evaluation_rf = src.Evaluation(y_test, y_pred_rf)
+    mse_rf, mae_rf, rmse_rf = evaluation_rf.compute_metrics()
     print(
         f'Random Forest Model - MSE: {mse_rf}, '
         f'MAE: {mae_rf}, RMSE: {rmse_rf}'
     )
 
-    # Get the date to plot
-    # plot_date = src.get_plot_date()
-
-    Plotter = src.WindFarmPlotter(data)
     # Plot predictions for each model
     Plotter.plot_predictions(
         y_test,
@@ -138,6 +139,7 @@ if __name__ == "__main__":
         ),
     )
 
+    # Letting user know where to find the plots
     print("📊 Generated plots are saved in the ./output/ directory")
     end_time = time.time()  # End the timer
     elapsed_time = end_time - start_time

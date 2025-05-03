@@ -43,7 +43,7 @@ def get_valid_site_index():
 
 def get_lag_hours():
     """
-    Prompt the user to input the number of lag hours (1-24) and validate the
+    Prompt the user to input the number of lag hours (1 or 24) and validate the
     input.
 
     Returns
@@ -53,8 +53,9 @@ def get_lag_hours():
     """
     while True:
         try:
-            lag_hours = int(input("Enter the number of lag hours (1-24): "))
-            if 1 <= lag_hours <= 24:
+            lag_hours = int(input("Enter the desired forecasting horizon (1 or 24): "))
+            if lag_hours == 1 or lag_hours == 24:
+                print(f"✅ You selected a forecasting horizon of {lag_hours} hour(s).")
                 return lag_hours
             else:
                 print(
@@ -62,36 +63,6 @@ def get_lag_hours():
                 )
         except ValueError:
             print("❌ Invalid input. Please enter a valid number.")
-
-
-"""
-def get_plot_date():
-
-    # Prompt the user to input a date in the format YYYY-MM-DD and validate the
-    # input.
-
-
-    while True:
-        try:
-            user_month = int(input(
-                "Enter the month you want to plot (01-12): "
-            ))
-            if not (1 <= user_month <= 12):
-                print("❌ Invalid input. Please enter a valid month (01-12).")
-                continue
-
-            user_day = int(input(f"Enter the day you want to plot (01-31): "))
-            # Validate the date by attempting to create a datetime object
-            plot_date = datetime(year=2021, month=user_month, day=user_day)
-
-            # Return the date as a string in 'YYYY-MM-DD' format
-            return plot_date.strftime('%Y-%m-%d')
-
-        except ValueError:
-            print("❌ Invalid date. Please enter a valid day and month.")
-"""
-
-# --------------- Week 9 ---------------
 
 
 class WindFarmDataset:
@@ -126,8 +97,7 @@ class WindFarmDataset:
         """
         self.file_path = file_path
         self.data = None
-        # self.train_size = train_size
-        # self.test_size = test_size
+
 
     def load_data(self):
         """
@@ -138,12 +108,6 @@ class WindFarmDataset:
         )
         self.data = self.data.dropna()
         return self.data
-
-    def summary(self):
-        """
-        Print a summary of basic statistics for the dataset.
-        """
-        return self.data.describe()
 
     def transform_wind_directions(self):
         """
@@ -156,50 +120,10 @@ class WindFarmDataset:
         self.data['winddirection_100m'] = np.sin(
             np.deg2rad(self.data['winddirection_100m'])
         )
-
         return self.data
-    '''
-    def split(self):
-        """
-        Split the dataset into training and testing sets.
-        """
-        train_size = int(len(self.data) * self.train_size)
-        test_size = int(len(self.data) * self.test_size)
 
-        train_data = self.data.iloc[:train_size]
-        test_data = self.data.iloc[train_size:train_size + test_size]
 
-        return train_data, test_data
-    '''
-    """
-    def create_lagged_features(self):
-            '''
-            Creates a new dataset with lagged features based on origin
-            dataset features (1 hour shift, can be changed later).
-            '''
-            if self.data is None:
-                raise ValueError(
-                    "Data not loaded. Please load the data first."
-                )
-
-            #self.data['Power_lag1'] = self.data['Power'].shift(1)
-            # self.data['windspeed_100m_lag1'] = self.data[
-            #     'windspeed_100m'
-            # ].shift(1)
-
-            # Iterate through each column in the dataset
-            for col in self.data.columns:
-
-                # Create lagged features (1 hour shift)
-                self.data[f'{col}_lag_1'] = self.data[col].shift(1)
-
-            # Drop missing values from lag/rolling features
-            self.data = self.data.dropna()
-
-            return self.data
-    """
-
-    def split_data(self, lag_hours):
+    def split_data(self, lag_hours, split_index):
         """
         Splits the dataset into training and testing sets after creating
         lagged features and selecting relevant features based on correlation
@@ -208,6 +132,8 @@ class WindFarmDataset:
         Args:
             lag_hours (int): The number of hours to lag the features for
             creating lagged variables.
+            split_index (float): The proportion of the dataset to include in
+            the training set (e.g., 0.8 for 80% training and 20% testing).
 
         Raises:
             ValueError: If the data attribute is not loaded before calling
@@ -215,13 +141,11 @@ class WindFarmDataset:
 
         Returns:
             tuple: A tuple containing:
-                - X_train (pd.DataFrame): Training set features.
-                - X_test (pd.DataFrame): Testing set features.
+                - x_train (pd.DataFrame): Training set features.
+                - x_test (pd.DataFrame): Testing set features.
                 - y_train (pd.Series): Training set target variable.
                 - y_test (pd.Series): Testing set target variable.
         """
-        if self.data is None:
-            raise ValueError("Data not loaded. Please load the data first.")
 
         # Create a copy of the data to avoid modifying the original
         data = self.data.copy()
@@ -233,40 +157,49 @@ class WindFarmDataset:
 
         data = data.dropna()  # Drop missing values from lag/rolling features
 
-        # Correlation matrix
+        # Correlation matrix for feature selection
         corr_plot_features = ['Power'] + [
             f for f in data.columns if f'_lag_{lag_hours}' in f
         ]
         corr_subset = data[corr_plot_features].corr()
 
+        # Plotting the correlation heatmap
         plt.figure(figsize=(8, 4))
         sns.heatmap(corr_subset, cmap="Greens", annot=True)
         plt.title(f'Correlation heatmap (lag = {lag_hours})')
         plt.tight_layout()
-        plt.show()
+        plt.savefig(
+            f'./outputs/correlation_heatmap_lag_{lag_hours}.png',
+            dpi=300
+        )
 
         # Feature selection based on correlation threshold
         correlations = corr_subset['Power'].drop('Power')  # Remove self-correlation
-        selected_features = correlations[abs(correlations) > 0.5].index.tolist()
-
+        # for 1 hour ahead prediction, select features with correlation > 0.5
+        if lag_hours == 1:
+            selected_features = correlations[abs(correlations) > 0.5].index.tolist()
+        # for 24 hours ahead prediction, select features with correlation > 0.15
+        elif lag_hours == 24:
+            selected_features = correlations[abs(correlations) > 0.15].index.tolist()
+        # printing the selected features
         print(
-            'The features selected for the machine learning model are thus:',
+            'ℹ️ The features selected for the machine learning model are thus:',
             selected_features
         )
         # Split the lagged dataset into training and testing sets
         # (feature and target).
         # Does not shuffle time-series data — future data should not influence
         # past predictions.
-        split_idx = int(len(data) * 0.8)  # 80% for training, 20% for testing
+        split_idx = int(len(data) * split_index)  # split_index defined in main.py
 
-        # feature_columns = [col for col in data.columns if f'_lag_{lag_hours}' in col]  # Select only columns with lagged features
-        X = data[selected_features]  # Selected Features
+        x = data[selected_features]  # Selected Features
         y = data['Power']  # 'Power' is the target variable
 
-        X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+        # creating train and test set based on feature and split ratio
+        x_train, x_test = x.iloc[:split_idx], x.iloc[split_idx:]
         y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
 
-        return X_train, X_test, y_train, y_test
+        return x_train, x_test, y_train, y_test
 
 
 class WindFarmPlotter:
@@ -283,7 +216,7 @@ class WindFarmPlotter:
         plot_data(
             site_index, column, start_time=None, end_time=None,
             title='Data Plot', xlabel='Time', ylabel='Value',
-            label_legend='Data'
+            label_legend='Data', save_path
         ):
             Plots the time-series data for a specific site and time range.
 
@@ -304,15 +237,26 @@ class WindFarmPlotter:
 
     def plot_data(
         self, site_index, column, start_time=None, end_time=None,
-        title='Data Plot', xlabel='Time', ylabel='Value', label_legend='Data'
+        title='Data Plot', xlabel='Time', ylabel='Value', label_legend='Data', save_path=None
     ):
         """
         Plot the data for a specific site and time range.
+        Args:
+            site_index (int): The index of the site to plot.
+            column (str): The column name to plot.
+            start_time (str): The start time for the plot (optional).
+            end_time (str): The end time for the plot (optional).
+            title (str): The title of the plot.
+            xlabel (str): The label for the x-axis.
+            ylabel (str): The label for the y-axis.
+            label_legend (str): The legend label for the plot.
+            save_path (str): The path to save the plot image.
         """
         x_data = self.data.loc[start_time:end_time].index
         y_data = self.data.loc[start_time:end_time, column]
 
-        plt.figure(figsize=(8, 4))
+        plt.figure(figsize=(8, 5))
+        plt.subplots_adjust(bottom=0.2)  # Add more vertical room for x-axis labels
         plt.plot(x_data, y_data, label=label_legend)
         plt.title(title, fontsize=16)
         plt.xlabel(xlabel, fontsize=12)
@@ -321,24 +265,25 @@ class WindFarmPlotter:
         plt.ylabel(ylabel, fontsize=12)
         plt.legend(fontsize=10)
         plt.grid()
-        plt.show()
+        plt.savefig(save_path, dpi=300)  # Save the plot as a PNG file
+
 
     def plot_predictions(
         self, y_test, y_pred, start_time=None, end_time=None,
         title='Model Predictions vs Actual', model_name='Model', save_path=None
     ):
-
         """
-        if user_month in [4, 6, 9, 11]:  # Months with 30 days
-            end_date = f"2021-{user_month:02d}-30"
-        elif user_month == 2:  # February (assuming non-leap year)
-            end_date = f"2021-{user_month:02d}-28"
-        else:  # Months with 31 days
-            end_date = f"2021-{user_month:02d}-31"
-
-        start_date = f"2021-{user_month}-01"
+        Plot the comparison between actual and predicted values for a given
+        location and time range.
+        Args:
+            y_test (pd.Series): The actual values (ground truth).
+            y_pred (pd.Series): The predicted values from the model.
+            start_time (str): The start time for the plot.
+            end_time (str): The end time for the plot.
+            title (str): The title of the plot.
+            model_name (str): The name of the model used for predictions.
+            save_path (str): The path to save the plot image.
         """
-
         plt.figure(figsize=(10, 5))
         plt.plot(
             y_test.loc[start_time:end_time],
@@ -362,8 +307,6 @@ class WindFarmPlotter:
         plt.tight_layout()
 
         plt.savefig(save_path, dpi=300)  # Save the plot as a PNG file
-        # plt.show()
-
 
 class Evaluation:
     """
@@ -405,13 +348,10 @@ class Evaluation:
         -------
         RMSE, MAE, and MSE.
         """
-        #  if len(self.y_true) != len(self.y_pred):
-        #  self.y_true = self.y_true[1:]  # Shift y_true to match the length
-        #  of y_pred
-
-        mse = mean_squared_error(self.y_true, self.y_pred)
-        mae = mean_absolute_error(self.y_true, self.y_pred)
-        rmse = np.sqrt(mse)
+        # Calculate evaluation metrics
+        mse = round(mean_squared_error(self.y_true, self.y_pred),5)
+        mae = round(mean_absolute_error(self.y_true, self.y_pred),5)
+        rmse = round(np.sqrt(mse),5)
 
         return mse, mae, rmse
 
@@ -424,9 +364,9 @@ class Prediction:
     where lagged features are used for prediction.
 
     Attributes:
-        X_test (pd.DataFrame): The test dataset features.
+        x_test (pd.DataFrame): The test dataset features.
         y_test (pd.Series): The test dataset target variable.
-        X_train (pd.DataFrame): The training dataset features.
+        x_train (pd.DataFrame): The training dataset features.
         y_train (pd.Series): The training dataset target variable.
 
     Methods:
@@ -444,28 +384,27 @@ class Prediction:
             dataset.
     """
 
-    def __init__(self, X_test, y_test, X_train, y_train):
+    def __init__(self, x_test, y_test, x_train, y_train):
         """
         Initialize the Prediction class with the model and data.
         """
-        self.X_test = X_test
+        self.x_test = x_test
         self.y_test = y_test
-        self.X_train = X_train
+        self.x_train = x_train
         self.y_train = y_train
 
     # Persistence Model
     def persistence_model(self, lag_hours):
         """
         Predict one-hour ahead power output using persistence model.
+        The persistence model uses the lagged feature of the target variable
+        to predict the next value.
         """
         column_name = f'Power_lag_{lag_hours}'
-        if column_name not in self.X_test.columns:
-            raise ValueError(f"Column '{column_name}' not found in the dataset. Ensure lagged features are created correctly.")
-
         # Use the lagged column for prediction
-        y_pred_persistence = self.X_test[column_name]
+        y_pred_persistence = self.x_test[column_name]
 
-        # y_pred_persistence = self.X_test['Power_lag_{lag_hours}']
+        # y_pred_persistence = self.x_test['Power_lag_{lag_hours}']
         # y_pred_persistence = self.y_test.shift(1)  # one step persistence (1 hour ahead)
         # y_pred_persistence = y_pred_persistence.dropna()  # Drop the first row with NaN value
 
@@ -477,10 +416,10 @@ class Prediction:
         Train a linear regression model.
         """
         model_linear_reg = LinearRegression()
-        model_linear_reg.fit(self.X_train, self.y_train)
+        model_linear_reg.fit(self.x_train, self.y_train)
 
         # Predict on training data
-        y_pred_linear_reg = model_linear_reg.predict(self.X_test)
+        y_pred_linear_reg = model_linear_reg.predict(self.x_test)
 
         # Convert to Series with same index as y_test
         y_pred_linear_reg = pd.Series(
@@ -495,10 +434,10 @@ class Prediction:
         Train a Support Vector Machine (SVM) model.
         """
         model_svm = svm.SVR()
-        model_svm.fit(self.X_train, self.y_train)
+        model_svm.fit(self.x_train, self.y_train)
 
         # Predict on training data
-        y_pred_svm = model_svm.predict(self.X_test)
+        y_pred_svm = model_svm.predict(self.x_test)
 
         # Convert to Series with same index as y_test
         y_pred_svm = pd.Series(y_pred_svm, index=self.y_test.index)
@@ -511,10 +450,10 @@ class Prediction:
         Train a Random Forest model.
         """
         model_rf = RandomForestRegressor(n_estimators=100, random_state=42)
-        model_rf.fit(self.X_train, self.y_train)
+        model_rf.fit(self.x_train, self.y_train)
 
         # Predict on test data
-        y_pred_rf = model_rf.predict(self.X_test)
+        y_pred_rf = model_rf.predict(self.x_test)
 
         # Convert to Series with same index as y_test
         y_pred_rf = pd.Series(y_pred_rf, index=self.y_test.index)
