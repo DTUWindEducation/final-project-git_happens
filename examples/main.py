@@ -4,7 +4,7 @@ import sys
 import os
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-import src as src
+import final_project_git_happens as src
 
 #Initialising split index
 split_index = 0.8 # 80% train, 20% test
