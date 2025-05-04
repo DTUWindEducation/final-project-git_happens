@@ -50,7 +50,17 @@ conda env create -f environment.yml
 ```bash
 conda activate GitHappens_FinalProject
 ```
-If you want to install the packages in your own environment, see all dependencies in final-project-git_happens/environment.yml.
+If you want to install the packages in your own environment, these are the packages to install:
+* python 3.11
+* pandas
+* numpy
+* matplotlib
+* scikit-learn
+* seaborn
+* pylint
+* pytest
+* pytest-cov
+* -e .
 
 ### 2. Execute main.py
 1. Run main.py located in final-project-git_happens/examples.
