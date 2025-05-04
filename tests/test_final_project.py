@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for testing
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,8 +10,8 @@ import os
 import tempfile
 from unittest.mock import patch
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-from __init__ import WindFarmDataset, Evaluation, Prediction, WindFarmPlotter, get_valid_site_index, get_lag_hours  # __init__ here refers to src/__init__.py
+#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+from final_project_git_happens import WindFarmDataset, Evaluation, Prediction, WindFarmPlotter, get_valid_site_index, get_lag_hours  # __init__ here refers to src/__init__.py
 
 #---- Tests for user inputs ----
 
