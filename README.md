@@ -50,7 +50,13 @@ conda env create -f environment.yml
 ```bash
 conda activate GitHappens_FinalProject
 ```
-If you want to install the packages in your own environment, these are the packages to install:
+Alternatively, if you want to install the packages in your own environment, you can do so by running the following command for each package in your terminal:
+
+```bash
+pip install <package_name>
+```
+
+Here are the packages to install:
 * python 3.11
 * pandas
 * numpy
