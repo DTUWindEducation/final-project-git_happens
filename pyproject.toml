@@ -9,7 +9,7 @@ build-backend = "hatchling.build"
 
 # Information on the package
 [project]
-name = "final-project_git_happens"
+name = "final_project_git_happens"
 description = "A wind power forecasting package using machine learning"
 version = "0.0.1"
 authors = [
@@ -31,4 +31,4 @@ dependencies = [
 Repository = "https://github.com/DTUWindEducation/final-project-git_happens.git"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/wind_power_forecasting"]
+packages = ["src/final_project_git_happens"]         
